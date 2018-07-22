@@ -17,4 +17,4 @@ Simply download the `factorial_hmm.py` file, add its location to `sys.path` (e.g
 
 ## Usage
 
-The full documentation is available at the [Wiki section](https://github.com/myheritage/factorial_hmm/wiki).
+The full documentation is available at the Wiki section.
