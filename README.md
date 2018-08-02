@@ -19,6 +19,8 @@ Simply download the `factorial_hmm.py` file, add its location to `sys.path` (e.g
 
 Prerequisites are `numpy` and `scipy`.
 
+Comments are welcome at regevs@gmail.com or regev.schweiger@myheritage.com.
+
 ## Usage
 
 The full documentation is available at the Wiki section.
