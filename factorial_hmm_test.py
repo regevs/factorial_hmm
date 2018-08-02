@@ -42,32 +42,38 @@ class BasicFactorialHMM(FactorialHMMDiscreteObserved):
 
 class GaussianFactorialHMM(FactorialHMMGeneralObserved):
     hidden_indices = I = Indices([['bit_a', 2], ['bit_b', 2]])
-    observed_indices = J = ['height']
-
+    observed_indices = J = ['x1','x2']    
+    
     def __init__(self, params, n_steps, calculate_on_init=True):
         # Call base class constructor
         super().__init__(params, n_steps, calculate_on_init)
-        self.mus = 5*np.mgrid[[range(s) for s in self.hidden_indices.field_sizes]].sum(axis=0).astype(float)        
-        self.rvs = scipy.stats.norm(loc=self.mus)
-
+        # In this example, m shifts the means for all hidden states
+        m = self.params['m']
+        # Draw means: one mean for each combination of hidden state and observation. Assume variance=1
+        self.mus = m + np.random.RandomState().rand(*(self.hidden_indices.field_sizes + [len(self.observed_indices)]))
+    
     def SetTransitionMatricesTensor(self):
         I = self.I
-        p = self.params['p']
-
-        for n in range(self.n_steps - 1):
-            self.SetTransitionSubmatrix(n, I.bit_a, [[1-p, p], [p, 1-p]])
-            self.SetTransitionSubmatrix(n, I.bit_b, [[1-p, p], [p, 1-p]])
-
+    
+        for n in range(self.n_steps - 1):            
+            self.SetTransitionSubmatrix(n, I.bit_a,[[0.2,0.6],[0.8,0.4]])
+            self.SetTransitionSubmatrix(n, I.bit_b,[[0.3,0.5],[0.7,0.5]])
+    
     def SetInitialHiddenState(self):
         I = self.I
-
         self.SetInitialHiddenSubstate(I.bit_a, [0.8, 0.2])
-        self.SetInitialHiddenSubstate(I.bit_b, [0.1, 0.9])
-
+        self.SetInitialHiddenSubstate(I.bit_b, [0.4, 0.6])
+    
     def GetObservedGivenHidden(self, observed_state, n_step):
-        return self.rvs.pdf(observed_state[0])
-
-    def DrawObservedGivenHidden(self, hidden_state, n_step, random_state):
-        return scipy.stats.norm(loc=self.mus[tuple(hidden_state)]).rvs(size=1, random_state=None)
+        # Assume, for this example, that the two parts of the observation are independent
+        a = np.ones(self.hidden_indices.field_sizes)
+        for st in self.all_hidden_states:
+            a[tuple(st)] = np.prod(scipy.stats.norm(loc=self.mus[list(st)+[Ellipsis]]).pdf(observed_state))
+        return a
         
+    def DrawObservedGivenHidden(self, hidden_state, n_step, random_state):
+        return scipy.stats.norm(loc=self.mus[list(hidden_state)+[Ellipsis]]).rvs(size=len(self.observed_indices), random_state=random_state)
+        
+
+
 
