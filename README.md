@@ -13,9 +13,13 @@ The running time and space requirement of all procedures is linear in the number
 
 ## Installation
 
+Required Python 3+.
+
 Simply download the `factorial_hmm.py` file, add its location to `sys.path` (e.g., `sys.path.append(path_to_dir)`), and import the library.
 
 Prerequisites are `numpy` and `scipy`.
+
+Comments are welcome at regevs@gmail.com or regev.schweiger@myheritage.com.
 
 ## Usage
 
