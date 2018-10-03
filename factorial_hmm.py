@@ -3,6 +3,7 @@ import numpy as np
 import itertools
 import functools
 import operator
+import copy
 
 class Indices(object):
     def __init__(self, fields_and_sizes):
@@ -503,3 +504,111 @@ class FactorialHMMGeneralObserved(FactorialHMM):
 
         self.n_observed_states = len(self.observed_indices)
         
+
+class FullDiscreteFactorialHMM(FactorialHMMDiscreteObserved):
+    def __init__(self, params, n_steps, calculate_on_init=False):
+        # First initialize the hidden and observed indices
+        assert 'hidden_alphabet_size' in params.keys(), "params dictionary must contain 'hidden_alphabet_size':<alphabet size>"
+        assert 'n_hidden_states' in params.keys(), "params dictionary must contain 'n_hidden_states':<number of hidden chains>"
+        assert 'observed_alphabet_size' in params.keys(), "params dictionary must contain 'observed_alphabet_size':<alphabet size>"
+        assert 'n_observed_states' in params.keys(), "params dictionary must contain 'n_observed_states':<number of observed chains>"
+
+        self.hidden_indices = self.I = Indices([['z{}'.format(i), params['hidden_alphabet_size']] for i in range(params['n_hidden_states'])])
+        self.observed_indices = self.J = Indices([['x{}'.format(i), params['observed_alphabet_size']] for i in range(params['n_observed_states'])])
+
+        # Call base class constructor
+        super().__init__(params, n_steps, calculate_on_init)
+
+    def SetTransitionMatricesTensor(self):
+        for n in range(self.n_steps - 1):
+            for field in range(self.n_hidden_states):
+                self.SetTransitionSubmatrix(n, field, self.params['transition_matrices'][field, :, :])
+
+    def SetInitialHiddenState(self):
+        for field in range(self.n_hidden_states):
+            self.SetInitialHiddenSubstate(field, self.params['initial_hidden_state'][field, :])
+
+    def SetObservedGivenHidden(self):        
+        for n_step in range(self.n_steps):
+            self.SetObservedGivenHiddenSubmatrix(n_step, self.params['obs_given_hidden'])            
+
+    def MStep(self, observed_states, alphas, betas, gammas, scaling_constants):
+        # Shortcuts
+        I = self.hidden_indices
+        J = self.observed_indices
+        P = self.params
+
+        K = P['hidden_alphabet_size']
+
+        initial_hidden_state_estimate = np.zeros((self.n_hidden_states, K))   
+        transition_matrices_estimates = np.zeros((self.n_hidden_states, K, K))        
+        for field in range(self.n_hidden_states):
+            collapsed_xis = self.CalculateAndCollapseXis(field, observed_states, alphas, betas, scaling_constants)
+            collapsed_gammas = self.CollapseGammas(gammas, field)
+
+            initial_hidden_state_estimate[field, :] = collapsed_gammas[:, 0] / collapsed_gammas[:, 0].sum()
+            transition_matrices_estimates[field, :, :] = (collapsed_xis.sum(axis=2) / collapsed_gammas[:, :-1].sum(axis=1)[:, np.newaxis]).T
+
+        emission_probability_estimate = np.zeros(self.observed_indices.field_sizes + self.hidden_indices.field_sizes)
+        for hid_state in self.all_hidden_states:                
+            gammas_at_hid = gammas[tuple(hid_state) + (Ellipsis,)]
+
+            for obs_state in self.all_observed_states:
+                indices = np.where(np.all(observed_states == obs_state[:, np.newaxis], axis=0))[0]            
+                emission_probability_estimate[tuple(obs_state) + tuple(hid_state)] = gammas_at_hid[indices].sum() / gammas_at_hid.sum()
+                
+       
+        new_params = copy.deepcopy(P)
+        new_params['initial_hidden_state'] = initial_hidden_state_estimate
+        new_params['transition_matrices'] = transition_matrices_estimates
+        new_params['obs_given_hidden'] = emission_probability_estimate
+
+        return new_params
+
+    def EM(self, observed_states, n_iterations=1e8, likelihood_precision=1e-10, verbose=False, print_every=1):
+        old_log_likelihood = -np.inf
+        n_iter = 0
+
+        # Create an HMM object with an initial random state
+        params = copy.deepcopy(self.params)
+        K = params['hidden_alphabet_size']
+
+        
+
+        for field in range(params['n_hidden_states']):
+            M = np.random.random((K,K))
+            M /= M.sum(axis=0)[np.newaxis, :]
+            params['transition_matrices'][field, :, :] = M
+
+            S = np.random.random(K)
+            S /= S.sum()
+            params['initial_hidden_state'][field, :] = S
+
+        G = np.random.random(self.observed_indices.field_sizes + self.hidden_indices.field_sizes)
+        G /= G.sum(axis=tuple(np.arange(self.n_observed_states)))[(np.newaxis,) * self.n_observed_states + (Ellipsis,)]
+        params['obs_given_hidden'] = G
+
+        H = FullDiscreteFactorialHMM(params, self.n_steps, True)
+
+        while True:
+            alphas, betas, gammas, scaling_constants, log_likelihood = H.EStep(observed_states)
+            new_params = H.MStep(observed_states, alphas, betas, gammas, scaling_constants)
+
+            if verbose and (n_iter%print_every == 0 or n_iter == n_iterations-1):
+                print("Iter: {}\t LL: {}".format(n_iter, log_likelihood))
+
+            n_iter += 1
+            if n_iter == n_iterations:
+                break
+
+            if np.abs(log_likelihood - old_log_likelihood) < likelihood_precision:
+                break
+
+            old_log_likelihood = log_likelihood
+            H = FullDiscreteFactorialHMM(new_params, self.n_steps, True)
+
+        return H
+
+
+
+

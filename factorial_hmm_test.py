@@ -1,6 +1,6 @@
-# import importlib
-# import factorial_hmm
-# importlib.reload(factorial_hmm)
+import importlib
+import factorial_hmm
+importlib.reload(factorial_hmm)
 from factorial_hmm import *
 
 import scipy.stats
@@ -75,5 +75,44 @@ class GaussianFactorialHMM(FactorialHMMGeneralObserved):
         return scipy.stats.norm(loc=self.mus[list(hidden_state)+[Ellipsis]]).rvs(size=len(self.observed_indices), random_state=random_state)
         
 
+class ExampleFullDiscreteFactorialHMM(FullDiscreteFactorialHMM):
+    # Call base class constructor
+    def __init__(self, n_steps):
+        params = {
+            'hidden_alphabet_size': 2,
+            'n_hidden_states': 4,
+            'observed_alphabet_size': 2,
+            'n_observed_states': 2,
+        }
 
+        K = params['hidden_alphabet_size']
 
+        params['initial_hidden_state'] = np.zeros((params['n_hidden_states'], K))   
+        params['transition_matrices'] = np.zeros((params['n_hidden_states'], K, K)) 
+        params['obs_given_hidden'] = np.zeros([params['observed_alphabet_size']] * params['n_observed_states'] + \
+                                        [params['hidden_alphabet_size']] * params['n_hidden_states'])
+
+        for field in range(params['n_hidden_states']):
+            p = 1 - 0.1*(field+1)
+            q = 1 - 0.15*(field+1)
+            params['transition_matrices'][field, :, :] =  [[p, 1-q], [1-p, q]]
+            params['initial_hidden_state'][field, :] = [0.5, 0.5]
+        
+        for st in itertools.product(*[range(K)] * params['n_hidden_states']):
+            # Uniform emission
+            R = np.ones([2, 2])
+            R /= R.sum()
+
+            # Emission where the observed are the sum of the hidden states
+            S = np.zeros([2, 2])
+            for ost in itertools.product(*[range(params['observed_alphabet_size'])] * params['n_observed_states']):
+                if ost[0]*2 + ost[1] == (np.sum(st[:len(ost)]) % 4):
+                    S[tuple(ost)] = 1
+
+            T = (0.9 * S + 0.1 * R)
+
+            params['obs_given_hidden'][[Ellipsis] + list(st)] = T
+
+        super().__init__(params=params, n_steps=n_steps, calculate_on_init=True)
+
+    
