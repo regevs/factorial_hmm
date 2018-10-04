@@ -565,26 +565,25 @@ class FullDiscreteFactorialHMM(FactorialHMMDiscreteObserved):
 
         return new_params
 
-    def EM(self, observed_states, n_iterations=1e8, likelihood_precision=1e-10, verbose=False, print_every=1):
+    def EM(self, observed_states, n_iterations=1e8, likelihood_precision=1e-10, verbose=False, print_every=1, random_seed=None):
         old_log_likelihood = -np.inf
         n_iter = 0
+        random_state = np.random.RandomState(random_seed)
 
         # Create an HMM object with an initial random state
         params = copy.deepcopy(self.params)
         K = params['hidden_alphabet_size']
 
-        
-
         for field in range(params['n_hidden_states']):
-            M = np.random.random((K,K))
+            M = random_state.random_sample((K,K))
             M /= M.sum(axis=0)[np.newaxis, :]
             params['transition_matrices'][field, :, :] = M
 
-            S = np.random.random(K)
+            S = random_state.random_sample(K)
             S /= S.sum()
             params['initial_hidden_state'][field, :] = S
 
-        G = np.random.random(self.observed_indices.field_sizes + self.hidden_indices.field_sizes)
+        G = random_state.random_sample(self.observed_indices.field_sizes + self.hidden_indices.field_sizes)
         G /= G.sum(axis=tuple(np.arange(self.n_observed_states)))[(np.newaxis,) * self.n_observed_states + (Ellipsis,)]
         params['obs_given_hidden'] = G
 
