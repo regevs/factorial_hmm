@@ -592,6 +592,7 @@ class FullDiscreteFactorialHMM(FactorialHMMDiscreteObserved):
         while True:
             alphas, betas, gammas, scaling_constants, log_likelihood = H.EStep(observed_states)
             new_params = H.MStep(observed_states, alphas, betas, gammas, scaling_constants)
+            H = FullDiscreteFactorialHMM(new_params, self.n_steps, True)            
 
             if verbose and (n_iter%print_every == 0 or n_iter == n_iterations-1):
                 print("Iter: {}\t LL: {}".format(n_iter, log_likelihood))
@@ -604,7 +605,6 @@ class FullDiscreteFactorialHMM(FactorialHMMDiscreteObserved):
                 break
 
             old_log_likelihood = log_likelihood
-            H = FullDiscreteFactorialHMM(new_params, self.n_steps, True)
 
         return H
 
