@@ -475,13 +475,13 @@ class FactorialHMMDiscreteObserved(FactorialHMM):
         self.n_observed_state_space = functools.reduce(operator.mul, self.observed_indices.field_sizes)
         self.all_observed_states = np.array(list(itertools.product(*[range(size) for size in self.observed_indices.field_sizes])))
 
-        self.obs_given_hidden = np.ones(self.observed_indices.field_sizes + self.hidden_indices.field_sizes + [self.n_steps])
+        self.obs_given_hidden = np.ones([self.n_steps] + self.hidden_indices.field_sizes + self.observed_indices.field_sizes)
 
         if calculate_on_init:
             self.SetObservedGivenHidden()
 
     def SetObservedGivenHiddenSubmatrix(self, n_step, obs_given_hidden):
-        self.obs_given_hidden[..., n_step] = obs_given_hidden            
+        self.obs_given_hidden[n_step, ...] = obs_given_hidden            
 
     def SetObservedGivenHidden(self):
         # return # Prepare the matrix of P(X=x|Z=z)
@@ -489,11 +489,11 @@ class FactorialHMMDiscreteObserved(FactorialHMM):
 
     def GetObservedGivenHidden(self, observed_state, n_step):
         # Returns a tensor of P(x|z), per z
-        return self.obs_given_hidden[list(observed_state) + [Ellipsis, n_step]]
+        return self.obs_given_hidden[[n_step, Ellipsis] + list(observed_state)]
 
     def DrawObservedGivenHidden(self, hidden_state, n_step, random_state):
         draw = lambda ps: random_state.choice(len(ps), size=None, p=ps)
-        probs = self.obs_given_hidden[[Ellipsis] + list(hidden_state) + [n_step]].ravel()
+        probs = self.obs_given_hidden[[n_step] + list(hidden_state) + [Ellipsis]].ravel()
         return self.all_observed_states[draw(probs)]
 
 
@@ -509,12 +509,12 @@ class FullDiscreteFactorialHMM(FactorialHMMDiscreteObserved):
     def __init__(self, params, n_steps, calculate_on_init=False):
         # First initialize the hidden and observed indices
         assert 'hidden_alphabet_size' in params.keys(), "params dictionary must contain 'hidden_alphabet_size':<alphabet size>"
-        assert 'n_hidden_states' in params.keys(), "params dictionary must contain 'n_hidden_states':<number of hidden chains>"
+        assert 'n_hidden_chains' in params.keys(), "params dictionary must contain 'n_hidden_chains':<number of hidden chains>"
         assert 'observed_alphabet_size' in params.keys(), "params dictionary must contain 'observed_alphabet_size':<alphabet size>"
-        assert 'n_observed_states' in params.keys(), "params dictionary must contain 'n_observed_states':<number of observed chains>"
+        assert 'n_observed_chains' in params.keys(), "params dictionary must contain 'n_observed_chains':<number of observed chains>"
 
-        self.hidden_indices = self.I = Indices([['z{}'.format(i), params['hidden_alphabet_size']] for i in range(params['n_hidden_states'])])
-        self.observed_indices = self.J = Indices([['x{}'.format(i), params['observed_alphabet_size']] for i in range(params['n_observed_states'])])
+        self.hidden_indices = self.I = Indices([['z{}'.format(i), params['hidden_alphabet_size']] for i in range(params['n_hidden_chains'])])
+        self.observed_indices = self.J = Indices([['x{}'.format(i), params['observed_alphabet_size']] for i in range(params['n_observed_chains'])])
 
         # Call base class constructor
         super().__init__(params, n_steps, calculate_on_init)
@@ -549,13 +549,13 @@ class FullDiscreteFactorialHMM(FactorialHMMDiscreteObserved):
             initial_hidden_state_estimate[field, :] = collapsed_gammas[:, 0] / collapsed_gammas[:, 0].sum()
             transition_matrices_estimates[field, :, :] = (collapsed_xis.sum(axis=2) / collapsed_gammas[:, :-1].sum(axis=1)[:, np.newaxis]).T
 
-        emission_probability_estimate = np.zeros(self.observed_indices.field_sizes + self.hidden_indices.field_sizes)
+        emission_probability_estimate = np.zeros(self.hidden_indices.field_sizes + self.observed_indices.field_sizes)
         for hid_state in self.all_hidden_states:                
             gammas_at_hid = gammas[tuple(hid_state) + (Ellipsis,)]
 
             for obs_state in self.all_observed_states:
                 indices = np.where(np.all(observed_states == obs_state[:, np.newaxis], axis=0))[0]            
-                emission_probability_estimate[tuple(obs_state) + tuple(hid_state)] = gammas_at_hid[indices].sum() / gammas_at_hid.sum()
+                emission_probability_estimate[tuple(hid_state) + tuple(obs_state)] = gammas_at_hid[indices].sum() / gammas_at_hid.sum()
                 
        
         new_params = copy.deepcopy(P)
@@ -574,8 +574,8 @@ class FullDiscreteFactorialHMM(FactorialHMMDiscreteObserved):
         params = copy.deepcopy(self.params)
         K = params['hidden_alphabet_size']
 
-        for field in range(params['n_hidden_states']):
-            M = random_state.random_sample((K,K))
+        for field in range(params['n_hidden_chains']):
+            M = random_state.random_sample((K, K))
             M /= M.sum(axis=0)[np.newaxis, :]
             params['transition_matrices'][field, :, :] = M
 
@@ -583,8 +583,8 @@ class FullDiscreteFactorialHMM(FactorialHMMDiscreteObserved):
             S /= S.sum()
             params['initial_hidden_state'][field, :] = S
 
-        G = random_state.random_sample(self.observed_indices.field_sizes + self.hidden_indices.field_sizes)
-        G /= G.sum(axis=tuple(np.arange(self.n_observed_states)))[(np.newaxis,) * self.n_observed_states + (Ellipsis,)]
+        G = random_state.random_sample(self.hidden_indices.field_sizes + self.observed_indices.field_sizes)
+        G /= G.sum(axis=tuple(np.arange(self.n_hidden_states, self.n_hidden_states + self.n_observed_states)))[(Ellipsis,) + (np.newaxis,) * self.n_observed_states]
         params['obs_given_hidden'] = G
 
         H = FullDiscreteFactorialHMM(params, self.n_steps, True)
