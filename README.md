@@ -25,4 +25,4 @@ Comments are welcome at regevs@gmail.com or regev.schweiger@myheritage.com.
 
 ## Usage
 
-The full documentation is available at the Wiki section.
+The full documentation is available at the [Wiki](https://github.com/regevs/factorial_hmm/wiki) section.
