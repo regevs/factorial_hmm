@@ -129,7 +129,7 @@ class FactorialHMM(object):
         if len(observed_states.shape) == 1:
             observed_states = observed_states.reshape((1, -1))
 
-        n_steps = observed_states.shape[1]
+        n_steps = observed_states.shape[-1]
         assert n_steps <= self.n_steps
 
         # Initialize
@@ -157,7 +157,7 @@ class FactorialHMM(object):
         if len(observed_states.shape) == 1:
             observed_states = observed_states.reshape((1, -1))
 
-        n_steps = observed_states.shape[1]
+        n_steps = observed_states.shape[-1]
         assert n_steps <= self.n_steps        
 
         # Forward
@@ -184,7 +184,7 @@ class FactorialHMM(object):
         if len(observed_states.shape) == 1:
             observed_states = observed_states.reshape((1, -1))
 
-        n_steps = observed_states.shape[1]
+        n_steps = observed_states.shape[-1]
 
         xis = np.ones(self.hidden_indices.field_sizes + self.hidden_indices.field_sizes + [n_steps-1])
         for n_step in range(1, n_steps):
@@ -221,7 +221,7 @@ class FactorialHMM(object):
         if len(observed_states.shape) == 1:
             observed_states = observed_states.reshape((1, -1))
 
-        n_steps = observed_states.shape[1]
+        n_steps = observed_states.shape[-1]
 
         field_size = self.hidden_indices.field_sizes[field]
 
@@ -278,7 +278,7 @@ class FactorialHMM(object):
         if len(observed_states.shape) == 1:
             observed_states = observed_states.reshape((1, -1))
 
-        n_steps = observed_states.shape[1]
+        n_steps = observed_states.shape[-1]
 
         back_pointers = np.ones((self.n_hidden_state_space, n_steps-1), dtype=int)   
         lls = np.ones((self.n_hidden_state_space, n_steps), dtype=float)   
@@ -310,7 +310,7 @@ class FactorialHMM(object):
         if len(observed_states.shape) == 1:
             observed_states = observed_states.reshape((1, -1))
 
-        n_steps = observed_states.shape[1]
+        n_steps = observed_states.shape[-1]
 
         mgrid_prepared = list(np.mgrid[[range(s) for s in self.hidden_indices.field_sizes]])
         
@@ -318,7 +318,7 @@ class FactorialHMM(object):
         back_pointers = np.ones(self.hidden_indices.field_sizes + [self.n_hidden_states] + [n_steps-1], dtype=int)   
         lls = np.zeros(self.hidden_indices.field_sizes + [n_steps], dtype=float)
 
-        lls[..., 0] = np.log(self.InitialHiddenStateConditional(observed_states[:, 0]))
+        lls[..., 0] = np.log(self.InitialHiddenStateConditional(observed_states[..., 0]))
         ll = lls[..., 0]
 
         for n_step in range(1, n_steps):
@@ -398,7 +398,7 @@ class FactorialHMM(object):
         return most_likely, back_pointers, lls    
 
     def CalculateJointLogLikelihood(self, observed_states, hidden_states):
-        n_steps = observed_states.shape[1]
+        n_steps = observed_states.shape[-1]
 
         logp = 0.0
         # p(x0,z0)
@@ -457,7 +457,7 @@ class FactorialHMM(object):
     def SetInitialHiddenState(self):
         raise NotImplementedError
 
-    def GetObservedGivenHidden(self, observed_state):
+    def GetObservedGivenHidden(self, observed_state, n_step):
         raise NotImplementedError
 
     def DrawObservedGivenHidden(self, hidden_state, n_step, random_state):
