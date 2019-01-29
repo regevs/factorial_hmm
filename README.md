@@ -4,6 +4,8 @@ FactorialHMM is a Python package for fast exact inference in Factorial Hidden Ma
 
 FactorialHMM is freely available for academic use. A specific license must be obtained for any commercial or for-profit organization or for any web-diffusion purpose.
 
+Citation: Regev Schweiger, Yaniv Erlich, Shai Carmi; FactorialHMM: fast and exact inference in factorial hidden Markov models, Bioinformatics, bty944, https://doi.org/10.1093/bioinformatics/bty944
+
 Our package allows:
 * Simulating directly from the model 
 * Simulating from the posterior distribution of states given the observations
